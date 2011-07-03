@@ -10,7 +10,7 @@ description = {
    summary = "Provides a Video class, interfacing ffmpeg",
    detailed = [[
          Decodes video frames via ffmpeg, and uses the
-         torch.Tensor class to store them.
+         torch.Tensor class (from Torch7) to store them.
          Also uses the qt package to display the videos.
    ]],
    homepage = "",
