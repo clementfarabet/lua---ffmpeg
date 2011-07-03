@@ -28,6 +28,7 @@
 --              them in tables of torch.Tensor().
 --
 -- history: 
+--     July  3, 2011, 2:59AM - fixed details for Torch7 - Clement Farabet
 --     June 30, 2011, 11:22PM - import from our repo - Clement Farabet
 ----------------------------------------------------------------------
 
@@ -52,24 +53,30 @@ do
          self, {...}, 'Video',
          'loads a video into a table of tensors:\n'
             .. ' + relies on ffpmeg, which must be installed\n'
-            .. ' + creates a local scratch/ to hold jpegs',
+            .. ' + creates a local scratch/ to store temp frames on disk',
          {arg='path', type='string', help='path to video'},
-         {arg='width', type='number', help='width', default=500},
-         {arg='height', type='number', help='height', default=376},
-         {arg='fps', type='number', help='frames per second', default=5},
-         {arg='length', type='number', help='length, in seconds', default=5},
+         {arg='width', type='number', help='width', default=320},
+         {arg='height', type='number', help='height', default=240},
+         {arg='fps', type='number', help='frames per second', default=10},
+         {arg='length', type='number', help='length, in seconds', default=10},
          {arg='channel', type='number', help='video channel', default=0},
          {arg='load', type='boolean', help='loads frames after conversion', default=true},
          {arg='delete', type='boolean', help='clears (rm) frames after load', default=true},
          {arg='encoding', type='string', help='format of dumped frames', default='png'},
-         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (WxHxCxN or WxHxN), that bypasses path'}
+         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'}
       )
 
       -- check ffmpeg existence
       local res = sys.execute('ffmpeg')
       if res:find('not found') then 
          local c = sys.COLORS
-         error(c.Red .. 'ffmpeg required, please install it (apt-get install ffmpeg)' .. c.none)
+         xlua.error( 'ffmpeg not found, please install it (apt-get/port install ffmpeg)',
+                     'ffmpeg.Video')
+      end
+
+      -- check libpng existence
+      if not xlua.require 'libpng' and encoding == 'png' then
+         xlua.error( 'libpng not found, and required', 'ffmpeg.Video')
       end
 
       -- cleanup path
@@ -77,15 +84,15 @@ do
 
       -- is data provided ?
       if self.tensor then
-         local outer = self.tensor:nDimension()
-         self.nframes = self.tensor:size(outer)
+         self.nframes = self.tensor:size(1)
          self[1] = {}
          for i = 1,self.nframes do
-            table.insert(self[1], self.tensor:select(outer,i))
+            table.insert(self[1], self.tensor[i])
          end
          self.path = 'tensor-'..random.random()
-         self.width = self.tensor:size(1)
-         self.height = self.tensor:size(2)
+         self.depth = self.tensor:nDimension()
+         self.width = self.tensor:size(self.depth)
+         self.height = self.tensor:size(self.depth-1)
          self.load = true
          return
       else
@@ -180,7 +187,7 @@ do
             if not self.load then
                table.insert(where, fname)
             else
-               table.insert(where, image.load(fname):narrow(3,1,3))
+               table.insert(where, image.load(fname):narrow(1,1,3))
             end
             idx = idx + 1
          end
@@ -200,7 +207,7 @@ do
       else 
 	 if self.encoding == 'png' then 
 	    -- png is loaded in RGBA
-	    return image.load(self[c][i]):narrow(3,1,3)
+	    return image.load(self[c][i]):narrow(1,1,3)
 	 else
 	    return image.load(self[c][i])
 	 end
@@ -252,13 +259,17 @@ do
       local sequence = self[channel]
       local tensor
       if sequence[1]:nDimension() == 3 then
-         tensor = torch.Tensor(sequence[1]:size(1),sequence[1]:size(2),
-                               sequence[1]:size(3),nframes)
+         tensor = torch.Tensor(nframes,
+                               sequence[1]:size(1),
+                               sequence[1]:size(2),
+                               sequence[1]:size(3))
       else
-         tensor = torch.Tensor(sequence[1]:size(1),sequence[1]:size(2),1,nframes)
+         tensor = torch.Tensor(nframes,1,
+                               sequence[1]:size(1),
+                               sequence[1]:size(2))
       end
       for i = 1,nframes do
-         tensor:select(4,i):copy(sequence[offset+i-1])
+         tensor[i]:copy(sequence[offset+i-1])
          if (offset+i-1) == self.nframes then break end
       end
       return tensor
@@ -392,6 +403,12 @@ do
          {arg='channel', type='number', help='video channel', default=1}
       )
 
+      -- dependencies
+      require 'qt'
+      require 'qttorch'
+      require 'qtwidget'
+      require 'qtuiloader'
+
       -- timer for display
       local timer = qt.QTimer()
       timer.singleShot = false
@@ -454,15 +471,14 @@ do
                  end)
 
       -- plays vid
-      local disp = Displayer()
       local frame = torch.Tensor()
       local pause = 1 / (fps or self.fps)
 
       -- disp frame function
       local function dispFrame(i)
          local frame = self[channel][i]
-         if not self.load then frame = image.load(frame):narrow(3,1,3) end
-         disp:show{tensor=frame,painter=p,legend='playing sequence',zoom=zoom}
+         if not self.load then frame = image.load(frame):narrow(1,1,3) end
+         image.display{image=frame, win=p, legend='playing sequence', zoom=zoom}
          collectgarbage()
       end
 
@@ -531,6 +547,12 @@ do
          {arg='fps', type='number', help='fps [default = given by seq.fps]'}
       )
 
+      -- dependencies
+      require 'qt'
+      require 'qttorch'
+      require 'qtwidget'
+      require 'qtuiloader'
+
       -- timer for display
       local timer = qt.QTimer()
       timer.singleShot = false
@@ -564,7 +586,6 @@ do
                  end)
 
       -- plays vid
-      local disp = Displayer()
       local frame = torch.Tensor()
       local pause = 1 / (fps or self.fps)
 
@@ -575,19 +596,18 @@ do
          local framer = self[2][i]
          -- optional load
          if not self.load then 
-            framel = image.load(framel):narrow(3,1,3)
-            framer = image.load(framer):narrow(3,1,3)
+            framel = image.load(framel):narrow(1,1,3)
+            framer = image.load(framer):narrow(1,1,3)
          end
          -- merged
-         frame:resize(framel:size(1),framel:size(2),3)
-         frame:select(3,1):copy(framel:select(3,1))
-         frame:select(3,2):copy(framer:select(3,1))
-         frame:select(3,3):copy(framer:select(3,1))
+         frame:resize(3,framel:size(2),framel:size(3))
+         frame:select(1,1):copy(framel:select(1,1))
+         frame:select(1,2):copy(framer:select(1,1))
+         frame:select(1,3):copy(framer:select(1,1))
          -- disp
-         disp:show{tensor=frame,
-                   painter=p,
-                   legend='playing 3D sequence [left=RED, right=CYAN]',
-                   zoom=zoom}
+         image.display{image=frame, win=p,
+                       legend='playing 3D sequence [left=RED, right=CYAN]',
+                       zoom=zoom}
          -- clean
          collectgarbage()
       end
@@ -629,83 +649,6 @@ do
       end
    end
 
-
-   ----------------------------------------------------------------------
-   -- playYouTube3D() 
-   -- plays a video in a format which is acceptable for YouTube 3D (loads jpgs from disk as prepared by Video2imgs)
-   --
-   function vid:playYouTube3D(...)
-      -- usage
-      local _, zoom, savefname = xlua.unpack(
-         {...},
-         'video:playYouTube3D',
-         'plays a video:\n'
-            .. ' + video must have been loaded with video:loadVideo()\n'
-            .. ' + or else, it must be a list of pairs of tensors',
-         {arg='zoom', type='number', help='zoom', default=1},
-         {arg='savefname', type='string', help='filename in which output movie will be saved'}
-      )
-
-      -- enforce 16:9 ratio
-      local h  = self.height
-      local w  = (h * 16 / 9)
-      local w2 = w/2
-      local frame = torch.Tensor(w,h,3)
-      print('Frame [' .. frame:size(1) .. ', ' .. frame:size(2) .. ', ' .. frame:size(3) .. ']')
-
-      -- create output
-      local outp = Video{width=w, height=h, fps=self.fps, 
-                         length=self.length, encoding='png'}
-
-      -- plays vid
-      zoom = zoom or 1
-      local p =	 qtwidget.newwindow(w*zoom,h*zoom)
-      local disp = Displayer()
-      local pause = 1 / (self.fps or 5) - 0.08
-      local idx = 1
-      for i = 1,#self[1] do
-         -- left/right
-         local frameL = self[1][i]
-         local frameR = self[2][i]
-         -- optional load
-         if not self.load then 
-            frameL = image.load(frameL):narrow(3,1,3)
-            frameR = image.load(frameR):narrow(3,1,3)
-         end
-	 print('FrameL [' .. frameL:size(1) .. ', ' .. frameL:size(2) .. ', ' .. frameL:size(3) .. ']')
-	 
-         -- left
-         if not (frameL:size(1) == w2 and frameL:size(2) == h) then
-            image.scale(frameL,frame:narrow(1,1,w2),'bilinear')
-         else
-            frame:narrow(1,1,w2):copy(frameL)
-         end
-         -- right
-         if not (frameR:size(1) == w2 and frameR:size(2) == h) then
-            image.scale(frameR,frame:narrow(1,w2,w2),'bilinear')
-         else 
-            frame:narrow(1,w2,w2):copy(frameR)
-         end
-         frameL = nil 
-         frameR = nil
-         collectgarbage() -- force GC ...
-         -- disp
-         disp:show{tensor=frame,painter=p,legend='playing 3D sequence',zoom=zoom}
-         if savefname then
-            local ofname = sys.concat(outp[1].path, string.format(outp[1].sformat, idx))
-            table.insert(outp[1], ofname)
-            image.save(ofname,frame)
-         end
-         idx = idx + 1
-         -- need pause to take the image loading time into account.
-         if pause and pause>0 then libxlearn.usleep(pause*1e6) end
-      end
-
-      -- convert pngs to AVI
-      if savefname then
-         outp:save(savefname)
-      end
-   end
 end
 
 return ffmpeg

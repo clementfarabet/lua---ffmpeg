@@ -7,6 +7,8 @@ $ lua
 > require 'ffmpeg'
 > ffmpeg.Video()
 -- prints help
+> vid = ffmpeg.Video('path/to/some/video.mpg')
+> vid:play{}
 
 NOTES:
 the package depends on external packages: 'xlua', 'sys', 'image' and 'torch'.
