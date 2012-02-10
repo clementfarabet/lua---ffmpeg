@@ -59,6 +59,7 @@ do
          {arg='height', type='number', help='height', default=240},
          {arg='fps', type='number', help='frames per second', default=10},
          {arg='length', type='number', help='length, in seconds', default=10},
+         {arg='seek', type='number', help='seek to pos. in seconds', default=0},
          {arg='channel', type='number', help='video channel', default=0},
          {arg='load', type='boolean', help='loads frames after conversion', default=true},
          {arg='delete', type='boolean', help='clears (rm) frames after load', default=true},
@@ -164,10 +165,15 @@ do
 	 os.execute('mkdir -p ' .. where.path) 
 	 -- process video
 	 if self.path then 
+            local seek_str = ''
+            if tonumber(self.seek) > 0 then 
+               seek_str = ' -ss ' .. self.seek 
+            end 
 	    local ffmpeg_cmd = 'ffmpeg -i ' .. self.path .. 
 	       ' -r ' .. self.fps .. 
 	       ' -t ' .. self.length ..
-	       ' -map 0.' .. channel ..
+               seek_str ..
+               ' -map 0.' .. channel ..
 	       ' -s ' .. self.width .. 'x' .. self.height .. 
 	       ' -qscale 1' ..
 	       ' ' .. sys.concat(where.path, where.sformat) ..
