@@ -173,7 +173,7 @@ do
 	       ' -r ' .. self.fps .. 
 	       ' -t ' .. self.length ..
                seek_str ..
-               ' -map 0.' .. channel ..
+               ' -map 0:v:' .. channel ..
 	       ' -s ' .. self.width .. 'x' .. self.height .. 
 	       ' -qscale 1' ..
 	       ' ' .. sys.concat(where.path, where.sformat) ..
