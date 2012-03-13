@@ -128,8 +128,8 @@ do
       local sdirname = sys.basename(self.path) .. '_' .. 
       self.fps .. 'fps_' .. 
       self.width .. 'x' .. self.height .. '_' .. 
-      self.length .. 's_c' .. 
-      c .. '_' .. self.encoding 
+      self.length .. 's_c' ..
+      c .. '_sk' .. self.seek .. '_' .. self.encoding 
 
       local path_cache = sys.concat('scratch',sdirname)
       return path_cache
