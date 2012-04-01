@@ -83,6 +83,12 @@ do
          xlua.error( 'libpng not found, and required', 'ffmpeg.Video')
       end
 
+      -- cleanup path
+      self.path = self.path:gsub('^~',os.getenv('HOME'))
+
+      -- set current frame pointer to 1
+      self.current = 1
+
       -- is data provided ?
       if self.tensor then
          self.nframes = self.tensor:size(1)
@@ -116,9 +122,6 @@ do
                   ..width.. 'x' ..height.. ']')
          end
       end
-
-      -- cleanup path
-      self.path = self.path:gsub('^~',os.getenv('HOME'))
 
       -- load channel(s)
       local channel = self.channel
@@ -244,8 +247,6 @@ do
    -- forward
    -- a simple forward() method, that returns the next frame(s) available
    function vid:forward()
-      -- current pointer
-      self.current = self.current or 1
       -- nb channels
       local nchannels = #self
       if nchannels == 1 then
