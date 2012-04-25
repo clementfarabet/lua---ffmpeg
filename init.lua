@@ -212,7 +212,12 @@ do
    function vid:loadPath(where)
       -- load Images
       local ext = '.' .. self.encoding
+      imagefiles={}
       for file in sys.files(where.path) do
+         table.insert(imagefiles,file)
+      end
+      table.sort(imagefiles)
+      for _,file in ipairs(imagefiles) do
          if string.sub(file,-(#ext)) == ext then
             local fname = sys.concat(where.path,file)
             if not self.load then
