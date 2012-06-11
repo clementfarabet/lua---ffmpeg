@@ -80,9 +80,6 @@ do
          xlua.error( 'libpng not found, and required', 'ffmpeg.Video')
       end
 
-      -- cleanup path
-      self.path = self.path:gsub('^~',os.getenv('HOME'))
-
       -- is data provided ?
       if self.tensor then
          self.nframes = self.tensor:size(1)
@@ -90,7 +87,7 @@ do
          for i = 1,self.nframes do
             table.insert(self[1], self.tensor[i])
          end
-         self.path = 'tensor-'..random.random()
+         self.path = 'tensor-'..torch.random()
          self.depth = self.tensor:nDimension()
          self.width = self.tensor:size(self.depth)
          self.height = self.tensor:size(self.depth-1)
@@ -107,6 +104,9 @@ do
                   ..width.. 'x' ..height.. ']')
          end
       end
+
+      -- cleanup path
+      self.path = self.path:gsub('^~',os.getenv('HOME'))
 
       -- load channel(s)
       local channel = self.channel
