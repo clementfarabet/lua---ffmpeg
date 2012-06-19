@@ -40,7 +40,6 @@ require 'image'
 do
    ffmpeg = {}
    local vid = torch.class('ffmpeg.Video')
-   local vid_format = 'frame-%06d.'
 
    -- check ffmpeg version
    local res = sys.execute('ffmpeg -version')
@@ -74,7 +73,9 @@ do
          {arg='load', type='boolean', help='loads frames after conversion', default=true},
          {arg='delete', type='boolean', help='clears (rm) frames after load', default=true},
          {arg='encoding', type='string', help='format of dumped frames', default='png'},
-         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'}
+         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'},
+         {arg='loaddump', type='boolean', help='path is a directory of previously dumped frames, not a file', default=false},
+         {arg='formatstr', type='string', help='filename pattern for dumped frames', default='frame-%06d.'}
       )
 
       -- check libpng existence
@@ -95,6 +96,15 @@ do
          self.height = self.tensor:size(self.depth-1)
          self.load = true
          return
+      elseif self.loaddump then
+         self[1] = {path=self.path}
+         self:loadPath(self[1])
+         -- all images in the dump must be the same size
+         local frame1 = self:get_frame(1,1)
+         self.depth = frame1:dim() + 1
+         self.width = frame1:size(self.depth-1)
+         self.height = frame1:size(self.depth-2)
+         return
       else
          -- auto correct width/height
          local width = math.floor(self.width/2)*2
@@ -109,6 +119,9 @@ do
 
       -- cleanup path
       self.path = self.path:gsub('^~',os.getenv('HOME'))
+
+      -- set current frame pointer to 1
+      self.current = 1
 
       -- load channel(s)
       local channel = self.channel
@@ -128,10 +141,10 @@ do
    -- make name for disk cache from ffmpeg
    function vid:mktemppath(c)
       local sdirname = sys.basename(self.path) .. '_' .. 
-      self.fps .. 'fps_' .. 
-      self.width .. 'x' .. self.height .. '_' .. 
+      self.fps .. 'fps_' ..
+      self.width .. 'x' .. self.height .. '_' ..
       self.length .. 's_c' ..
-      c .. '_sk' .. self.seek .. '_' .. self.encoding 
+      c .. '_sk' .. self.seek .. '_' .. self.encoding
 
       local path_cache = sys.concat('scratch',sdirname)
       return path_cache
@@ -143,7 +156,7 @@ do
          self[c].path = self:mktemppath(c)
       end
       os.execute('mkdir -p ' .. self[c].path)
-      return sys.concat(self[c].path ,vid_format .. 'png')
+      return sys.concat(self[c].path , self.formatstr .. 'png')
    end
 
    ----------------------------------------------------------------------
@@ -153,7 +166,7 @@ do
    function vid:loadChannel(channel, where)
       where.path = self:mktemppath(channel)
       -- file name format
-      where.sformat = vid_format .. self.encoding
+      where.sformat = self.formatstr .. self.encoding
       
       -- Only make cache dir and process video, if dir does not exist
       -- or if the source file is newer than the cache.  Could have
@@ -164,9 +177,9 @@ do
          or sys.fstat(self.path) > sys.fstat(sfile)
       then
          -- make disk cache dir
-         os.execute('mkdir -p ' .. where.path) 
+         os.execute('mkdir -p ' .. where.path)
          -- process video
-         if self.path then 
+         if self.path then
             local seek_str = ''
             if tonumber(self.seek) > 0 then 
                seek_str = ' -ss ' .. self.seek 
@@ -178,7 +191,7 @@ do
             else
                channel_str = ' -map 0:v:' .. channel
             end
-            local ffmpeg_cmd = 'ffmpeg -i ' .. self.path .. 
+            local ffmpeg_cmd = 'ffmpeg -i ' .. self.path ..
                ' -r ' .. self.fps .. 
                ' -t ' .. self.length ..
                seek_str ..
@@ -193,25 +206,30 @@ do
       end
 
       print('Using frames in ' .. sys.concat(where.path, where.sformat))
+      self:loadPath(where)
+   end
 
+   function vid:loadPath(where)
       -- load Images
-      local idx = 1
+      local ext = '.' .. self.encoding
+      imagefiles={}
       for file in sys.files(where.path) do
-         if file ~= '.' and file ~= '..' then
-            local fname = sys.concat(where.path,string.format(where.sformat,idx))
+         table.insert(imagefiles,file)
+      end
+      table.sort(imagefiles)
+      for _,file in ipairs(imagefiles) do
+         if string.sub(file,-(#ext)) == ext then
+            local fname = sys.concat(where.path,file)
             if not self.load then
                table.insert(where, fname)
             else
                table.insert(where, image.load(fname):narrow(1,1,3))
             end
-            idx = idx + 1
          end
       end
-
       -- update nb of frames
       self.nframes = #where
    end
-
    
    ----------------------------------------------------------------------
    -- get_frame
@@ -234,8 +252,6 @@ do
    -- forward
    -- a simple forward() method, that returns the next frame(s) available
    function vid:forward()
-      -- current pointer
-      self.current = self.current or 1
       -- nb channels
       local nchannels = #self
       if nchannels == 1 then
@@ -304,7 +320,7 @@ do
       for c = 1,nchannels do
          -- set the channel path if needed
          self.encoding = 'png'
-         format = vid_format .. 'png'
+         format = self.formatstr .. 'png'
          -- remove if dir exists
          local lpath = path .. '_fps_' ..  
             self.width .. 'x' .. self.height .. '_' .. 
@@ -343,7 +359,7 @@ do
          error(c.Red .. 'You must provide a path to save the video' .. c.none)
       end
 
-      local format = vid_format .. self.encoding
+      local format = self.formatstr .. self.encoding
       local nchannels = #self
 
       -- dump png if content is in ram
@@ -355,7 +371,7 @@ do
             local fmt = self.encoding
             self.encoding = 'png'
             self[c].path = self:mktemppath(c-1)
-            format = vid_format .. 'png'
+            format = self.formatstr .. 'png'
             self.encoding = fmt
             -- remove if dir exists
             if sys.dirp(self[c].path) then
