@@ -42,6 +42,16 @@ do
    local vid = torch.class('ffmpeg.Video')
    local vid_format = 'frame-%06d.'
 
+   -- check ffmpeg version
+   local res = sys.execute('ffmpeg -version')
+   if res:find('not found') then 
+      local c = sys.COLORS
+      xlua.error( 'ffmpeg not found, please install it (apt-get/port install ffmpeg)',
+                  'ffmpeg')
+   end
+   local v,vv,vvv = res:match('ffmpeg (%d).(%d).(%d)')
+   local ffmpeg_version = {tonumber(v), tonumber(vv), tonumber(vvv)}
+
    ----------------------------------------------------------------------
    -- __init()
    -- loads arbitrary videos, using FFMPEG (and a temp cache)
@@ -66,14 +76,6 @@ do
          {arg='encoding', type='string', help='format of dumped frames', default='png'},
          {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'}
       )
-
-      -- check ffmpeg existence
-      local res = sys.execute('ffmpeg')
-      if res:find('not found') then 
-         local c = sys.COLORS
-         xlua.error( 'ffmpeg not found, please install it (apt-get/port install ffmpeg)',
-                     'ffmpeg.Video')
-      end
 
       -- check libpng existence
       if not xlua.require 'libpng' and encoding == 'png' then
@@ -166,26 +168,33 @@ do
          or not sys.filep(sfile)
          or sys.fstat(self.path) > sys.fstat(sfile)
       then
-	 -- make disk cache dir
-	 os.execute('mkdir -p ' .. where.path) 
-	 -- process video
-	 if self.path then 
+         -- make disk cache dir
+         os.execute('mkdir -p ' .. where.path) 
+         -- process video
+         if self.path then 
             local seek_str = ''
             if tonumber(self.seek) > 0 then 
                seek_str = ' -ss ' .. self.seek 
             end 
-	    local ffmpeg_cmd = 'ffmpeg -i ' .. self.path .. 
-	       ' -r ' .. self.fps .. 
-	       ' -t ' .. self.length ..
+            -- map param syntax changed in ffmpeg 0.9
+            local channel_str = ''
+            if ffmpeg_version[1] == 0 and ffmpeg_version[2] < 9 then
+               channel_str = ' -map 0.' .. channel
+            else
+               channel_str = ' -map 0:v:' .. channel
+            end
+            local ffmpeg_cmd = 'ffmpeg -i ' .. self.path .. 
+               ' -r ' .. self.fps .. 
+               ' -t ' .. self.length ..
                seek_str ..
-               ' -map 0.' .. channel ..
-	       ' -s ' .. self.width .. 'x' .. self.height .. 
-	       ' -qscale 1' ..
-	       ' ' .. sys.concat(where.path, where.sformat) ..
-            ' 2> /dev/null'
-	    print(ffmpeg_cmd)
-	    os.execute(ffmpeg_cmd)
-	 end
+               channel_str ..
+               ' -s ' .. self.width .. 'x' .. self.height .. 
+               ' -qscale 1' ..
+               ' ' .. sys.concat(where.path, where.sformat) ..
+                 ' 2> /dev/null'
+            print(ffmpeg_cmd)
+            os.execute(ffmpeg_cmd)
+         end
       end
 
       print('Using frames in ' .. sys.concat(where.path, where.sformat))
