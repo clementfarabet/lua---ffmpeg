@@ -108,6 +108,11 @@ do
       -- cleanup path
       self.path = self.path:gsub('^~',os.getenv('HOME'))
 
+      -- verify file existence
+      if not paths.filep(self.path) then
+         xlua.error('file ' .. self.path .. ' could not be found', 'ffmpeg.Video')
+      end
+
       -- load channel(s)
       local channel = self.channel
       if type(channel) ~= 'table' then channel = {channel} end
@@ -331,7 +336,7 @@ do
       -- check outpath
       if outpath == '' then
          local c = sys.COLORS
-         error(c.Red .. 'You must provide a path to save the video' .. c.none)
+         xlua.error(c.Red .. 'You must provide a path to save the video' .. c.none, 'ffmpeg.Video')
       end
 
       local format = vid_format .. self.encoding
