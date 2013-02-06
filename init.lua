@@ -67,6 +67,7 @@ do
          {arg='path', type='string', help='path to video'},
          {arg='width', type='number', help='width', default=320},
          {arg='height', type='number', help='height', default=240},
+         {arg='zoom', type='number', help='zoom factor', default=1},
          {arg='fps', type='number', help='frames per second', default=10},
          {arg='length', type='number', help='length, in seconds', default=10},
          {arg='seek', type='number', help='seek to pos. in seconds', default=0},
@@ -381,10 +382,10 @@ do
          ffmpeg_cmd = (ffmpeg_cmd ..
                        ' -i ' .. sys.concat(self[c].path, format))
       end
-      ffmpeg_cmd = ffmpeg_cmd .. ' -vcodec mjpeg -qscale 1 -an ' .. outpath .. '.avi'
+      ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an ' .. outpath .. '.avi'
       for c = 2,nchannels do
          ffmpeg_cmd = (ffmpeg_cmd ..
-                       '  -vcodec mjpeg -qscale 1 -an  -newvideo')
+                       ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an  -newvideo')
       end
       ffmpeg_cmd = ffmpeg_cmd .. ' 2> /dev/null'
 
