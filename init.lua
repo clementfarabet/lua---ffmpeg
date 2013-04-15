@@ -75,7 +75,8 @@ do
          {arg='load', type='boolean', help='loads frames after conversion', default=true},
          {arg='delete', type='boolean', help='clears (rm) frames after load', default=true},
          {arg='encoding', type='string', help='format of dumped frames', default='png'},
-         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'}
+         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'},
+         {arg='destFolder', type='string', help='destination folder', default='scratch'}
       )
 
       -- check libpng existence
@@ -139,7 +140,7 @@ do
       self.length .. 's_c' ..
       c .. '_sk' .. self.seek .. '_' .. self.encoding
 
-      local path_cache = sys.concat('scratch',sdirname)
+      local path_cache = sys.concat(self.destFolder,sdirname)
       return path_cache
    end
 
