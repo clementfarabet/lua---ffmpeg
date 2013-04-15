@@ -1,7 +1,7 @@
 ----------------------------------------------------------------------
 --
 -- Copyright (c) 2011 Clement Farabet, Marco Scoffier
--- 
+--
 -- Permission is hereby granted, free of charge, to any person obtaining
 -- a copy of this software and associated documentation files (the
 -- "Software"), to deal in the Software without restriction, including
@@ -9,10 +9,10 @@
 -- distribute, sublicense, and/or sell copies of the Software, and to
 -- permit persons to whom the Software is furnished to do so, subject to
 -- the following conditions:
--- 
+--
 -- The above copyright notice and this permission notice shall be
 -- included in all copies or substantial portions of the Software.
--- 
+--
 -- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 -- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 -- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -20,14 +20,14 @@
 -- LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 -- OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 -- WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
--- 
+--
 ----------------------------------------------------------------------
 -- description:
 --     ffmpeg - provides a Video class that decodes arbitrary video
 --              formats using ffmpeg (via system calls) and returns
 --              them in tables of torch.Tensor().
 --
--- history: 
+-- history:
 --     July  3, 2011, 2:59AM - fixed details for Torch7 - Clement Farabet
 --     June 30, 2011, 11:22PM - import from our repo - Clement Farabet
 ----------------------------------------------------------------------
@@ -44,7 +44,7 @@ do
 
    -- check ffmpeg version
    local res = sys.execute('ffmpeg -version')
-   if res:find('not found') then 
+   if res:find('not found') then
       local c = sys.COLORS
       xlua.error( 'ffmpeg not found, please install it (apt-get/port install ffmpeg)',
                   'ffmpeg')
@@ -75,7 +75,8 @@ do
          {arg='load', type='boolean', help='loads frames after conversion', default=true},
          {arg='delete', type='boolean', help='clears (rm) frames after load', default=true},
          {arg='encoding', type='string', help='format of dumped frames', default='png'},
-         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'}
+         {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'},
+         {arg='destFolder', type='string', help='destination folder', default='scratch'}
       )
 
       -- check libpng existence
@@ -103,7 +104,7 @@ do
          if width ~= self.width or height ~= self.height then
             self.width = width
             self.height = height
-            print('WARNING: geometry has been changed to accomodate ffmpeg [' 
+            print('WARNING: geometry has been changed to accomodate ffmpeg ['
                   ..width.. 'x' ..height.. ']')
          end
       end
@@ -133,19 +134,19 @@ do
 
    -- make name for disk cache from ffmpeg
    function vid:mktemppath(c)
-      local sdirname = sys.basename(self.path) .. '_' .. 
-      self.fps .. 'fps_' .. 
-      self.width .. 'x' .. self.height .. '_' .. 
+      local sdirname = sys.basename(self.path) .. '_' ..
+      self.fps .. 'fps_' ..
+      self.width .. 'x' .. self.height .. '_' ..
       self.length .. 's_c' ..
-      c .. '_sk' .. self.seek .. '_' .. self.encoding 
+      c .. '_sk' .. self.seek .. '_' .. self.encoding
 
-      local path_cache = sys.concat('scratch',sdirname)
+      local path_cache = sys.concat(self.destFolder,sdirname)
       return path_cache
    end
 
    -- return the string format of dumped files
    function vid:getformat(c)
-      if not self[c].path then 
+      if not self[c].path then
          self[c].path = self:mktemppath(c)
       end
       os.execute('mkdir -p ' .. self[c].path)
@@ -160,7 +161,7 @@ do
       where.path = self:mktemppath(channel)
       -- file name format
       where.sformat = vid_format .. self.encoding
-      
+
       -- Only make cache dir and process video, if dir does not exist
       -- or if the source file is newer than the cache.  Could have
       -- flag to force processing.
@@ -170,13 +171,13 @@ do
          or sys.fstat(self.path) > sys.fstat(sfile)
       then
          -- make disk cache dir
-         os.execute('mkdir -p ' .. where.path) 
+         os.execute('mkdir -p ' .. where.path)
          -- process video
-         if self.path then 
+         if self.path then
             local seek_str = ''
-            if tonumber(self.seek) > 0 then 
-               seek_str = ' -ss ' .. self.seek 
-            end 
+            if tonumber(self.seek) > 0 then
+               seek_str = ' -ss ' .. self.seek
+            end
             -- map param syntax changed in ffmpeg 0.9
             local channel_str = ''
             if ffmpeg_version[1] == 0 and ffmpeg_version[2] < 9 then
@@ -184,12 +185,12 @@ do
             else
                channel_str = ' -map 0:v:' .. channel
             end
-            local ffmpeg_cmd = 'ffmpeg -i ' .. self.path .. 
-               ' -r ' .. self.fps .. 
+            local ffmpeg_cmd = 'ffmpeg -i ' .. self.path ..
+               ' -r ' .. self.fps ..
                ' -t ' .. self.length ..
                seek_str ..
                channel_str ..
-               ' -s ' .. self.width .. 'x' .. self.height .. 
+               ' -s ' .. self.width .. 'x' .. self.height ..
                ' -qscale 1' ..
                ' ' .. sys.concat(where.path, where.sformat) ..
                  ' 2> /dev/null'
@@ -218,15 +219,15 @@ do
       self.nframes = #where
    end
 
-   
+
    ----------------------------------------------------------------------
    -- get_frame
    -- as there are two ways to store, you can't index self[1] directly
    function vid:get_frame(c,i)
       if self.load then
 	 return self[c][i]
-      else 
-	 if self.encoding == 'png' then 
+      else
+	 if self.encoding == 'png' then
 	    -- png is loaded in RGBA
 	    return image.load(self[c][i]):narrow(1,1,3)
 	 else
@@ -303,7 +304,7 @@ do
    -- @param path     folder to save the files
    --
    function vid:dump(path)
-      os.execute('mkdir -p ' .. path) 
+      os.execute('mkdir -p ' .. path)
       -- dump pngs
       print('Dumping Frames into '..path..'...')
       local nchannels = #self
@@ -312,10 +313,10 @@ do
          self.encoding = 'png'
          format = vid_format .. 'png'
          -- remove if dir exists
-         local lpath = path .. '_fps_' ..  
-            self.width .. 'x' .. self.height .. '_' .. 
-            self.length .. 's_c' .. 
-            c-1 .. '_' .. self.encoding 
+         local lpath = path .. '_fps_' ..
+            self.width .. 'x' .. self.height .. '_' ..
+            self.length .. 's_c' ..
+            c-1 .. '_' .. self.encoding
          if sys.dirp(lpath) then
             os.execute('rm -rf ' .. lpath)
          end
@@ -445,7 +446,7 @@ do
       local ctrl = false
       qt.connect(p.listener,
                  'sigMousePress(int,int,QByteArray,QByteArray,QByteArray)',
-                 function (...) 
+                 function (...)
                     paused = not paused
                  end)
       qt.connect(p.listener,
@@ -546,7 +547,7 @@ do
    ----------------------------------------------------------------------
    -- this is like __tostring(), to be used for GUIs
    --
-   function vid:__show() 
+   function vid:__show()
       self:play{}
    end
 
@@ -585,7 +586,7 @@ do
       local ctrl = false
       qt.connect(p.listener,
                  'sigMousePress(int,int,QByteArray,QByteArray,QByteArray)',
-                 function (...) 
+                 function (...)
                     paused = not paused
                  end)
       qt.connect(p.listener,
@@ -616,7 +617,7 @@ do
          local framel = self[1][i]
          local framer = self[2][i]
          -- optional load
-         if not self.load then 
+         if not self.load then
             framel = image.load(framel):narrow(1,1,3)
             framer = image.load(framer):narrow(1,1,3)
          end
