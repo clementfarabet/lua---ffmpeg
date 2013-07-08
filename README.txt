@@ -3,7 +3,7 @@ DEPENDENCIES:
 libffmpeg and torch7 (www.torch.ch)
 
 INSTALL:
-$ torch-pkg install ffmpeg
+$ torch-rocks install ffmpeg
 
 USE:
 $ torch
