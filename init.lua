@@ -36,6 +36,7 @@ require 'xlua'
 require 'sys'
 require 'torch'
 require 'image'
+require 'paths'
 
 do
    ffmpeg = {}
@@ -134,13 +135,13 @@ do
 
    -- make name for disk cache from ffmpeg
    function vid:mktemppath(c)
-      local sdirname = sys.basename(self.path) .. '_' ..
+      local sdirname = paths.basename(self.path) .. '_' ..
       self.fps .. 'fps_' ..
       self.width .. 'x' .. self.height .. '_' ..
       self.length .. 's_c' ..
       c .. '_sk' .. self.seek .. '_' .. self.encoding
 
-      local path_cache = sys.concat(self.destFolder,sdirname)
+      local path_cache = paths.concat(self.destFolder,sdirname)
       return path_cache
    end
 
@@ -150,7 +151,7 @@ do
          self[c].path = self:mktemppath(c)
       end
       os.execute('mkdir -p ' .. self[c].path)
-      return sys.concat(self[c].path ,vid_format .. 'png')
+      return paths.concat(self[c].path ,vid_format .. 'png')
    end
 
    ----------------------------------------------------------------------
@@ -165,9 +166,10 @@ do
       -- Only make cache dir and process video, if dir does not exist
       -- or if the source file is newer than the cache.  Could have
       -- flag to force processing.
-      local sfile = sys.concat(where.path,string.format(where.sformat,1))
-      if not sys.dirp(where.path)
-         or not sys.filep(sfile)
+      local sfile = paths.concat(where.path,string.format(where.sformat,1))
+      if not paths.dirp(where.path)
+         or not paths.filep(sfile)
+         or not sys.fstat
          or sys.fstat(self.path) > sys.fstat(sfile)
       then
          -- make disk cache dir
@@ -192,20 +194,20 @@ do
                channel_str ..
                ' -s ' .. self.width .. 'x' .. self.height ..
                ' -qscale 1' ..
-               ' ' .. sys.concat(where.path, where.sformat) ..
+               ' ' .. paths.concat(where.path, where.sformat) ..
                  ' 2> /dev/null'
             print(ffmpeg_cmd)
             os.execute(ffmpeg_cmd)
          end
       end
 
-      print('Using frames in ' .. sys.concat(where.path, where.sformat))
+      print('Using frames in ' .. paths.concat(where.path, where.sformat))
 
       -- load Images
       local idx = 1
-      for file in sys.files(where.path) do
+      for file in paths.files(where.path) do
          if file ~= '.' and file ~= '..' then
-            local fname = sys.concat(where.path,string.format(where.sformat,idx))
+            local fname = paths.concat(where.path,string.format(where.sformat,idx))
             if not self.load then
                table.insert(where, fname)
             else
@@ -317,13 +319,13 @@ do
             self.width .. 'x' .. self.height .. '_' ..
             self.length .. 's_c' ..
             c-1 .. '_' .. self.encoding
-         if sys.dirp(lpath) then
+         if paths.dirp(lpath) then
             os.execute('rm -rf ' .. lpath)
          end
             os.execute('mkdir -p ' .. lpath)
             for i,frame in ipairs(self[c]) do
                xlua.progress(i,#self[c])
-               local ofname = sys.concat(lpath, string.format(format, i))
+               local ofname = paths.concat(lpath, string.format(format, i))
                image.save(ofname,frame)
             end
          end
@@ -365,13 +367,13 @@ do
             format = vid_format .. 'png'
             self.encoding = fmt
             -- remove if dir exists
-            if sys.dirp(self[c].path) then
+            if paths.dirp(self[c].path) then
                os.execute('rm -rf ' .. self[c].path)
             end
             os.execute('mkdir -p ' .. self[c].path)
             for i,frame in ipairs(self[c]) do
                xlua.progress(i,#self[c])
-               local ofname = sys.concat(self[c].path, string.format(format, i))
+               local ofname = paths.concat(self[c].path, string.format(format, i))
                image.save(ofname,frame)
             end
          end
@@ -381,7 +383,7 @@ do
       local ffmpeg_cmd =  ('ffmpeg -r ' .. self.fps)
       for c = 1,nchannels do
          ffmpeg_cmd = (ffmpeg_cmd ..
-                       ' -i ' .. sys.concat(self[c].path, format))
+                       ' -i ' .. paths.concat(self[c].path, format))
       end
       ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an ' .. outpath .. '.avi'
       for c = 2,nchannels do
@@ -391,7 +393,7 @@ do
       ffmpeg_cmd = ffmpeg_cmd .. ' 2> /dev/null'
 
       -- overwrite the file
-      if sys.filep(outpath .. '.avi') then
+      if paths.filep(outpath .. '.avi') then
          print('WARNING: ' .. outpath .. '.avi exist and will be overwritten...')
          os.execute('rm -rf ' .. outpath .. '.avi')
       end
