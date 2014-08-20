@@ -85,6 +85,7 @@ do
          xlua.error( 'libpng not found, and required', 'ffmpeg.Video')
       end
 
+      self.n_channels = 0
       -- is data provided ?
       if self.tensor then
          self.nframes = self.tensor:size(1)
@@ -92,6 +93,7 @@ do
          for i = 1,self.nframes do
             table.insert(self[1], self.tensor[i])
          end
+         self.n_channels = self.n_channels + 1
          self.path = 'tensor-'..torch.random()
          self.depth = self.tensor:nDimension()
          self.width = self.tensor:size(self.depth)
@@ -125,6 +127,7 @@ do
          self[i] = {}
          self:loadChannel(channel[i], self[i])
          self[i].channel = channel
+         self.n_channels = self.n_channels + 1
       end
 
       -- cleanup disk
@@ -246,7 +249,7 @@ do
       -- current pointer
       self.current = self.current or 1
       -- nb channels
-      local nchannels = #self
+      local nchannels = self.n_channels
       if nchannels == 1 then
          -- get next frame
          self.output = self.output or torch.Tensor()
@@ -309,7 +312,7 @@ do
       os.execute('mkdir -p ' .. path)
       -- dump pngs
       print('Dumping Frames into '..path..'...')
-      local nchannels = #self
+      local nchannels = self.n_channels
       for c = 1,nchannels do
          -- set the channel path if needed
          self.encoding = 'png'
@@ -353,12 +356,12 @@ do
       end
 
       local format = vid_format .. self.encoding
-      local nchannels = #self
+      local nchannels = self.n_channels
 
       -- dump png if content is in ram
       if self.load then
          print('Dumping Frames into Disk...')
-         local nchannels = #self
+         local nchannels = self.n_channels
          for c = 1,nchannels do
             -- set the channel path if needed
             local fmt = self.encoding
@@ -665,12 +668,13 @@ do
    -- clear()
    --
    function vid:clear()
-      for i = 1,#self do
+      for i = 1,self.n_channels do
          local clear = 'rm -rf ' .. self[i].path
          print('clearing video')
          os.execute(clear)
          print(clear)
       end
+      self.n_channels = 0
    end
 
 end
