@@ -77,7 +77,8 @@ do
          {arg='delete', type='boolean', help='clears (rm) frames after load', default=true},
          {arg='encoding', type='string', help='format of dumped frames', default='png'},
          {arg='tensor', type='torch.Tensor', help='provide a packed tensor (NxCxHxW or NxHxW), that bypasses path'},
-         {arg='destFolder', type='string', help='destination folder', default='scratch'}
+         {arg='destFolder', type='string', help='destination folder', default='scratch'},
+         {arg='silent', type='boolean', help='suppress output', default=false}
       )
 
       -- check libpng existence
@@ -107,8 +108,10 @@ do
          if width ~= self.width or height ~= self.height then
             self.width = width
             self.height = height
-            print('WARNING: geometry has been changed to accomodate ffmpeg ['
-                  ..width.. 'x' ..height.. ']')
+            if not self.silent then
+              print('WARNING: geometry has been changed to accomodate ffmpeg ['
+                    ..width.. 'x' ..height.. ']')
+            end
          end
       end
 
@@ -199,12 +202,16 @@ do
                ' -qscale 1' ..
                ' ' .. paths.concat(where.path, where.sformat) ..
                  ' 2> /dev/null'
-            print(ffmpeg_cmd)
+            if not self.silent then
+              print(ffmpeg_cmd)
+            end
             os.execute(ffmpeg_cmd)
          end
       end
 
-      print('Using frames in ' .. paths.concat(where.path, where.sformat))
+      if not self.silent then
+        print('Using frames in ' .. paths.concat(where.path, where.sformat))
+      end
 
       -- load Images
       local idx = 1
@@ -311,7 +318,9 @@ do
    function vid:dump(path)
       os.execute('mkdir -p ' .. path)
       -- dump pngs
-      print('Dumping Frames into '..path..'...')
+      if not self.silent then
+        print('Dumping Frames into '..path..'...')
+      end
       local nchannels = self.n_channels
       for c = 1,nchannels do
          -- set the channel path if needed
@@ -360,7 +369,9 @@ do
 
       -- dump png if content is in ram
       if self.load then
-         print('Dumping Frames into Disk...')
+         if not self.silent then
+           print('Dumping Frames into Disk...')
+         end
          local nchannels = self.n_channels
          for c = 1,nchannels do
             -- set the channel path if needed
@@ -397,12 +408,16 @@ do
 
       -- overwrite the file
       if paths.filep(outpath .. '.avi') then
-         print('WARNING: ' .. outpath .. '.avi exist and will be overwritten...')
+         if not self.silent then
+           print('WARNING: ' .. outpath .. '.avi exist and will be overwritten...')
+         end
          os.execute('rm -rf ' .. outpath .. '.avi')
       end
 
       -- do it
-      print(ffmpeg_cmd)
+      if not self.silent then
+        print(ffmpeg_cmd)
+      end
       os.execute(ffmpeg_cmd)
 
       -- cleanup disk
@@ -466,10 +481,14 @@ do
                        keyb = (keyb + 1) % 2
                        if keyb == 1 or sys.OS ~= 'macos' then
                           if loop then
-                             print('<Video:play> looping - off')
+                             if not self.silent then
+                               print('<Video:play> looping - off')
+                             end
                              loop = false
                           else
-                             print('<Video:play> looping - on')
+                             if not self.silent then
+                               print('<Video:play> looping - on')
+                             end
                              loop = true
                           end
                        end
@@ -545,7 +564,9 @@ do
       timer:start()
 
       -- Msg
-      print('<Video:play> started - [space] to pause/resume/restart, [L] to loop, [right,left] to step')
+      if not self.silent then
+        print('<Video:play> started - [space] to pause/resume/restart, [L] to loop, [right,left] to step')
+      end
    end
 
 
@@ -660,7 +681,9 @@ do
       timer:start()
 
       -- Msg
-      print('<Video:play3D> started - press space to pause/resume/restart')
+      if not self.silent then
+        print('<Video:play3D> started - press space to pause/resume/restart')
+      end
    end
 
 
@@ -670,9 +693,13 @@ do
    function vid:clear()
       for i = 1,self.n_channels do
          local clear = 'rm -rf ' .. self[i].path
-         print('clearing video')
+         if not self.silent then
+           print('clearing video')
+         end
          os.execute(clear)
-         print(clear)
+         if not self.silent then
+           print(clear)
+         end
       end
       self.n_channels = 0
    end
