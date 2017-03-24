@@ -349,15 +349,17 @@ do
    --
    function vid:save(...)
       -- usage
-      local args, outpath, keep = xlua.unpack(
+      local args, outpath, keep, usetheora = xlua.unpack(
          {...},
          'video:saveVideo',
          'save all the frames into a video file:\n'
             .. ' + video must have been loaded with video:loadVideo()\n'
             .. ' + or else, it must be a list of tensors',
          {arg='outpath', type='string', help='path to save the video', default=''},
-         {arg='keep', type='boolean', help='flag to keep the dump images', default=false}
+         {arg='keep', type='boolean', help='flag to keep the dump images', default=false},
+         {arg='usetheora', type='boolean', help='usetheora', default=false}
       )
+
       -- check outpath
       if outpath == '' then
          local c = sys.COLORS
@@ -394,24 +396,32 @@ do
       end
 
       -- warning: -r must come before -i
-      local ffmpeg_cmd =  ('ffmpeg -r ' .. self.fps)
+      local ffmpeg_cmd =  (FFMPEG .. ' -r ' .. self.fps)
       for c = 1,nchannels do
          ffmpeg_cmd = (ffmpeg_cmd ..
                        ' -i ' .. paths.concat(self[c].path, format))
       end
-      ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an ' .. outpath .. '.avi'
-      for c = 2,nchannels do
-         ffmpeg_cmd = (ffmpeg_cmd ..
-                       ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an  -newvideo')
+      if usetheora then
+         ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec theora -codec:v libtheora -qscale 1 -an ' .. outpath
+         for c = 2,nchannels do
+            ffmpeg_cmd = (ffmpeg_cmd ..
+                          ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec theora -codec:v libtheora -qscale 1 -an  -newvideo')
+         end
+      else
+         ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an ' .. outpath
+         for c = 2,nchannels do
+            ffmpeg_cmd = (ffmpeg_cmd ..
+                          ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an  -newvideo')
+         end
       end
       ffmpeg_cmd = ffmpeg_cmd .. ' 2> /dev/null'
 
       -- overwrite the file
-      if paths.filep(outpath .. '.avi') then
+      if paths.filep(outpath) then
          if not self.silent then
-           print('WARNING: ' .. outpath .. '.avi exist and will be overwritten...')
+           print('WARNING: ' .. outpath .. ' exist and will be overwritten...')
          end
-         os.execute('rm -rf ' .. outpath .. '.avi')
+         os.execute('rm -rf ' .. outpath)
       end
 
       -- do it
