@@ -396,7 +396,7 @@ do
       end
 
       -- warning: -r must come before -i
-      local ffmpeg_cmd =  (FFMPEG .. ' -r ' .. self.fps)
+      local ffmpeg_cmd =  ('ffmpeg -r ' .. self.fps)
       for c = 1,nchannels do
          ffmpeg_cmd = (ffmpeg_cmd ..
                        ' -i ' .. paths.concat(self[c].path, format))
