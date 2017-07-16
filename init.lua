@@ -82,8 +82,8 @@ do
       )
 
       -- check libpng existence
-      if not xlua.require 'libpng' and encoding == 'png' then
-         xlua.error( 'libpng not found, and required', 'ffmpeg.Video')
+      if not xlua.require 'liblua_png' and encoding == 'png' then
+         xlua.error( 'liblua_png not found, and required', 'ffmpeg.Video')
       end
 
       self.n_channels = 0
