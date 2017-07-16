@@ -402,16 +402,16 @@ do
                        ' -i ' .. paths.concat(self[c].path, format))
       end
       if usetheora then
-         ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec theora -codec:v libtheora -qscale 1 -an ' .. outpath
+         ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec theora -codec:v libtheora -qscale 1 -f mov -an ' .. outpath
          for c = 2,nchannels do
             ffmpeg_cmd = (ffmpeg_cmd ..
-                          ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec theora -codec:v libtheora -qscale 1 -an  -newvideo')
+                          ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec theora -codec:v libtheora -qscale 1 -f mov -an  -newvideo')
          end
       else
-         ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an ' .. outpath
+         ffmpeg_cmd = ffmpeg_cmd .. ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -f mov -an ' .. outpath
          for c = 2,nchannels do
             ffmpeg_cmd = (ffmpeg_cmd ..
-                          ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -an  -newvideo')
+                          ' -sws_flags neighbor -vf scale=' .. self.zoom .. '*iw:' .. self.zoom .. '*ih -vcodec mjpeg -qscale 1 -f mov -an  -newvideo')
          end
       end
       ffmpeg_cmd = ffmpeg_cmd .. ' 2> /dev/null'
